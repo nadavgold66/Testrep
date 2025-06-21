@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment Rental Tracker - Google Sign-In</title>
+    
+    <!-- Firebase SDK v8 (using compat for simplicity with auth) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .auth-info {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sync-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+
+        .sync-indicator.offline {
+            background: #fbbf24;
+        }
+
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .google-signin-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            color: #3c4043;
+            border: 1px solid #dadce0;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            margin-top: 20px;
+        }
+
+        .google-signin-btn:hover {
+            background: #f8f9fa;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .google-logo {
+            width: 20px;
+            height: 20px;
+        }
+
+        .main-content {
+            display: none;
+        }
+
+        .main-content.authenticated {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: #f0f2f5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="tel"],
+        input[type="date"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
+        input[type="tel"]:focus,
+        input[type="date"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .rating-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+
+        .star {
+            font-size: 24px;
+            color: #ddd;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            user-select: none;
+        }
+
+        .star.active {
+            color: #ffd700 !important;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-link {
+            background: none;
+            color: #667eea;
+            text-decoration: underline;
+            border: none;
+            padding: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-favorite {
+            background: none;
+            border: 2px solid #ff69b4;
+            color: #ff69b4;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-favorite.active {
+            background: #ff69b4;
+            color: white;
+        }
+
+        .btn-irrelevant {
+            background: none;
+            border: 2px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-irrelevant.active {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .apartment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .apartment-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+            position: relative;
+        }
+
+        .apartment-card.irrelevant {
+            opacity: 0.6;
+            background: #f8f9fa;
+        }
+
+        .apartment-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .apartment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .apartment-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .apartment-price {
+            font-size: 1.3em;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .apartment-badges {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-favorite {
+            background: #ffe0f0;
+            color: #ff69b4;
+        }
+
+        .badge-irrelevant {
+            background: #ffe0e0;
+            color: #ff6b6b;
+        }
+
+        .apartment-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .detail-item {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .rating-summary {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .rating-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .image-upload-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .image-preview {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .image-preview img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e0e6ed;
+        }
+
+        .total-cost {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #28a745;
+            margin-top: 10px;
+        }
+
+        .comparison-table {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            opacity: 0.9;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .sort-indicator {
+            margin-left: 5px;
+            font-size: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .irrelevant-note-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .irrelevant-note-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .irrelevant-note {
+            background: #ffe0e0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #d9534f;
+        }
+
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .apartment-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .auth-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        /* Map styles */
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .map-sidebar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .map-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .map-stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .map-stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .leaflet-popup-content {
+            min-width: 200px;
+        }
+
+        .popup-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .popup-detail {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .popup-price {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .popup-rating {
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .popup-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .popup-buttons .btn {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
+        .google-maps-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #4285f4;
+            text-decoration: none;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .google-maps-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🏠 Apartment Rental Tracker</h1>
+            <div class="auth-info">
+                <div class="sync-status">
+                    <span class="sync-indicator" id="sync-indicator"></span>
+                    <span id="sync-text">Connecting...</span>
+                </div>
+                <div id="user-info" style="display: none;">
+                    <img id="user-avatar" class="user-avatar" style="display: none;">
+                    <span id="user-email"></span>
+                    <button class="btn-link" onclick="signOut()">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="message-container"></div>
+        
+        <!-- Authentication Form -->
+        <div id="auth-container" class="auth-container">
+            <h2>Welcome to Your Apartment Tracker</h2>
+            <p style="margin-top: 20px; color: #666;">Sign in with your Google account to start tracking apartments</p>
+            <button class="google-signin-btn" onclick="signInWithGoogle()">
+                <svg class="google-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Sign in with Google
+            </button>
+        </div>
+
+        <!-- Main Application (Hidden until authenticated) -->
+        <div id="main-content" class="main-content">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('add')">Add Apartment</button>
+                <button class="tab" onclick="switchTab('list')">View Apartments</button>
+                <button class="tab" onclick="switchTab('compare')">Compare</button>
+                <button class="tab" onclick="switchTab('map')">Map View</button>
+            </div>
+
+            <!-- Add Apartment Tab -->
+            <div id="add-tab" class="tab-content active">
+                <div class="card">
+                    <h2>Add New Apartment</h2>
+                    <form id="apartment-form">
+                        <div class="form-group">
+                            <label for="address">Address</label>
+                            <input type="text" id="address" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="city">City</label>
+                            <input type="text" id="city" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="floor">Floor (e.g., 3/5)</label>
+                            <input type="text" id="floor" placeholder="3/5">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="size">Size (m²)</label>
+                            <input type="number" id="size">
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="divided">
+                            <label for="divided">Divided</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="parkingPermit">
+                            <label for="parkingPermit">Parking Permit Available</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="shelter">
+                            <label for="shelter">Shelter Room</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="elevator">
+                            <label for="elevator">Elevator</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="parking">
+                            <label for="parking">Parking</label>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="price">Monthly Rent (₪)</label>
+                            <input type="number" id="price" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="arnona">Arnona (₪)</label>
+                            <input type="number" id="arnona">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="vaad">Building Committee (₪)</label>
+                            <input type="number" id="vaad">
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="broker">
+                            <label for="broker">Through Broker</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="visited">
+                            <label for="visited">Visited Apartment</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="favorite">
+                            <label for="favorite">Mark as Favorite</label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="irrelevant" onchange="toggleIrrelevantNote()">
+                            <label for="irrelevant">Mark as Irrelevant</label>
+                        </div>
+
+                        <div class="form-group" id="irrelevant-note-group" style="display: none;">
+                            <label for="irrelevantNote">Why is this apartment irrelevant?</label>
+                            <textarea id="irrelevantNote" rows="3" placeholder="Explain why this apartment is not suitable..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contactName">Contact Name</label>
+                            <input type="text" id="contactName">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contactPhone">Contact Phone</label>
+                            <input type="tel" id="contactPhone">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="moveInDate">Move-in Date</label>
+                            <input type="date" id="moveInDate">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="listingUrl">Listing URL</label>
+                            <input type="text" id="listingUrl" placeholder="https://...">
+                        </div>
+
+                        <h3 style="margin-top: 30px; margin-bottom: 20px;">Ratings</h3>
+
+                        <div class="form-group">
+                            <label>Apartment Condition</label>
+                            <div class="rating-group" data-rating="condition">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Location for Leisure</label>
+                            <div class="rating-group" data-rating="leisureLocation">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Location for Work</label>
+                            <div class="rating-group" data-rating="workLocation">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Area Parking</label>
+                            <div class="rating-group" data-rating="areaParking">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Noise Level (5 = Very Quiet)</label>
+                            <div class="rating-group" data-rating="noise">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Neighbors</label>
+                            <div class="rating-group" data-rating="neighbors">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Privacy</label>
+                            <div class="rating-group" data-rating="privacy">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="notes">Notes</label>
+                            <textarea id="notes" rows="4"></textarea>
+                        </div>
+
+                        <div class="image-upload-section">
+                            <label for="images">Upload Images (Max 5)</label>
+                            <input type="file" id="images" accept="image/*" multiple onchange="handleImageUpload(event)">
+                            <div id="image-preview" class="image-preview"></div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submit-btn">Save Apartment</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- View Apartments Tab -->
+            <div id="list-tab" class="tab-content">
+                <div class="filter-section">
+                    <h3>Filters</h3>
+                    <div class="filter-grid">
+                        <div class="form-group">
+                            <label for="filter-city">City</label>
+                            <input type="text" id="filter-city" placeholder="Filter by city">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-max-price">Max Price</label>
+                            <input type="number" id="filter-max-price" placeholder="Maximum price">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-min-rating">Min Rating</label>
+                            <select id="filter-min-rating">
+                                <option value="">All</option>
+                                <option value="3">3★ and above</option>
+                                <option value="4">4★ and above</option>
+                                <option value="5">5★ only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-visited">Visit Status</label>
+                            <select id="filter-visited">
+                                <option value="">All</option>
+                                <option value="visited">Visited Only</option>
+                                <option value="not-visited">Not Visited Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-status">Status</label>
+                            <select id="filter-status">
+                                <option value="">All</option>
+                                <option value="favorite">Favorites Only</option>
+                                <option value="not-irrelevant">Hide Irrelevant</option>
+                                <option value="irrelevant">Irrelevant Only</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="apartments-list" class="apartment-grid">
+                    <div class="loading">Loading apartments...</div>
+                </div>
+                
+                <button class="btn btn-success" onclick="exportToCSV()" style="margin-top: 20px;">Export to CSV</button>
+            </div>
+
+            <!-- Compare Tab -->
+            <div id="compare-tab" class="tab-content">
+                <div class="card">
+                    <h2>Compare Apartments</h2>
+                    <div id="comparison-section">
+                        <p>Select apartments to compare from the list below:</p>
+                        <div id="comparison-checkboxes" style="margin: 20px 0;"></div>
+                        <button class="btn btn-primary" onclick="generateComparison()">Compare Selected</button>
+                        <div id="comparison-result"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Tab -->
+            <div id="map-tab" class="tab-content">
+                <div class="map-sidebar">
+                    <h3>Map View</h3>
+                    <div class="map-legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #28a745;"></div>
+                            <span>Under ₪4,000</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #667eea;"></div>
+                            <span>₪4,000 - ₪5,000</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #fbbf24;"></div>
+                            <span>₪5,000 - ₪6,000</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #dc3545;"></div>
+                            <span>Above ₪6,000</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h4>Map Filters</h4>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="map-filter-visited" onchange="updateMapMarkers()">
+                            <label for="map-filter-visited">Visited Only</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="map-filter-parking" onchange="updateMapMarkers()">
+                            <label for="map-filter-parking">With Parking</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="map-filter-elevator" onchange="updateMapMarkers()">
+                            <label for="map-filter-elevator">With Elevator</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="map-filter-favorites" onchange="updateMapMarkers()">
+                            <label for="map-filter-favorites">Favorites Only</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="map-filter-hide-irrelevant" onchange="updateMapMarkers()" checked>
+                            <label for="map-filter-hide-irrelevant">Hide Irrelevant</label>
+                        </div>
+                    </div>
+                    
+                    <div class="map-stats" id="map-stats">
+                        <div class="map-stat-item">
+                            <span>Apartments shown:</span>
+                            <span id="map-count">0</span>
+                        </div>
+                        <div class="map-stat-item">
+                            <span>Average price:</span>
+                            <span id="map-avg-price">₪0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // Firebase Configuration
+        // ========================================
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBl1t5NahZ44fToeiGa78qSvuhvPwzySAc",
+            authDomain: "app-tracker-7d451.firebaseapp.com",
+            databaseURL: "https://app-tracker-7d451-default-rtdb.firebaseio.com",
+            projectId: "app-tracker-7d451",
+            storageBucket: "app-tracker-7d451.firebasestorage.app",
+            messagingSenderId: "754427444557",
+            appId: "1:754427444557:web:5b7b41b7e63acb588e0b04",
+            measurementId: "G-KLY0FQ6L62"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+        
+        // ========================================
+        // Global Variables
+        // ========================================
+        
+        let apartments = {};
+        let currentImages = [];
+        let editingId = null;
+        let sortColumn = null;
+        let sortDirection = 'asc';
+        let isOnline = true;
+        let currentUser = null;
+        let map = null;
+        let markers = [];
+        let geocodeCache = {};
+
+        // ========================================
+        // Authentication Functions
+        // ========================================
+        
+        // Monitor authentication state
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                // User is signed in
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('main-content').classList.add('authenticated');
+                document.getElementById('user-info').style.display = 'flex';
+                document.getElementById('user-email').textContent = user.email;
+                
+                // Show user avatar if available
+                if (user.photoURL) {
+                    const avatar = document.getElementById('user-avatar');
+                    avatar.src = user.photoURL;
+                    avatar.style.display = 'inline-block';
+                }
+                
+                // Setup database listeners for authenticated user
+                setupDatabaseListeners();
+                updateSyncStatus(true);
+                showMessage('success', `Welcome back, ${user.displayName || user.email}!`);
+            } else {
+                // User is signed out
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('main-content').classList.remove('authenticated');
+                document.getElementById('user-info').style.display = 'none';
+                document.getElementById('user-avatar').style.display = 'none';
+                apartments = {};
+                updateSyncStatus(false);
+            }
+        });
+
+        // Sign in with Google
+        async function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            
+            try {
+                // For local file usage, use signInWithPopup
+                const result = await auth.signInWithPopup(provider);
+                // Success handled by onAuthStateChanged
+            } catch (error) {
+                console.error('Google sign-in error:', error);
+                let errorMessage = 'Sign in failed: ';
+                switch (error.code) {
+                    case 'auth/popup-closed-by-user':
+                        errorMessage += 'Sign-in popup was closed';
+                        break;
+                    case 'auth/popup-blocked':
+                        errorMessage += 'Sign-in popup was blocked by browser';
+                        break;
+                    case 'auth/cancelled-popup-request':
+                        errorMessage += 'Another sign-in request is already in progress';
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMessage += 'Network error. Please check your connection';
+                        break;
+                    case 'auth/unauthorized-domain':
+                        errorMessage += 'This domain is not authorized for sign-in. Contact the developer.';
+                        break;
+                    default:
+                        errorMessage += error.message;
+                }
+                showMessage('error', errorMessage);
+            }
+        }
+
+        // Sign out user
+        async function signOut() {
+            try {
+                await auth.signOut();
+                showMessage('success', 'Signed out successfully');
+            } catch (error) {
+                showMessage('error', 'Sign out failed: ' + error.message);
+            }
+        }
+
+        // ========================================
+        // Firebase Database Functions
+        // ========================================
+        
+        // Listen for apartments changes (only for authenticated user)
+        function setupDatabaseListeners() {
+            if (!currentUser) return;
+            
+            const userApartmentsRef = database.ref(`users/${currentUser.uid}/apartments`);
+            
+            userApartmentsRef.on('value', (snapshot) => {
+                apartments = snapshot.val() || {};
+                loadApartments();
+                updateSyncStatus(true);
+            }, (error) => {
+                showMessage('error', 'Failed to load apartments: ' + error.message);
+                updateSyncStatus(false);
+            });
+            
+            // Monitor connection status
+            database.ref('.info/connected').on('value', (snapshot) => {
+                isOnline = snapshot.val() === true;
+                updateSyncStatus(isOnline && currentUser);
+            });
+        }
+
+        // Update sync status indicator
+        function updateSyncStatus(online) {
+            const indicator = document.getElementById('sync-indicator');
+            const text = document.getElementById('sync-text');
+            
+            if (online && currentUser) {
+                indicator.classList.remove('offline');
+                text.textContent = 'Synced with cloud';
+            } else if (currentUser) {
+                indicator.classList.add('offline');
+                text.textContent = 'Offline mode';
+            } else {
+                indicator.classList.add('offline');
+                text.textContent = 'Not authenticated';
+            }
+        }
+
+        // Save apartment to Firebase (user-specific)
+        function saveApartmentToFirebase(apartmentData, apartmentId = null) {
+            if (!currentUser) {
+                throw new Error('User not authenticated');
+            }
+            
+            const userApartmentsRef = database.ref(`users/${currentUser.uid}/apartments`);
+            
+            if (apartmentId) {
+                // Update existing
+                return userApartmentsRef.child(apartmentId).set(apartmentData);
+            } else {
+                // Add new
+                return userApartmentsRef.push(apartmentData);
+            }
+        }
+
+        // Delete apartment from Firebase (user-specific)
+        function deleteApartmentFromFirebase(apartmentId) {
+            if (!currentUser) {
+                throw new Error('User not authenticated');
+            }
+            
+            return database.ref(`users/${currentUser.uid}/apartments/${apartmentId}`).remove();
+        }
+
+        // ========================================
+        // Initialize Application
+        // ========================================
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            setupRatingListeners();
+            setupFormListener();
+            
+            // Enable offline persistence
+            firebase.database().goOffline();
+            firebase.database().goOnline();
+        });
+
+        // ========================================
+        // UI Functions
+        // ========================================
+        
+        // Show message (replaces showError)
+        function showMessage(type, message) {
+            const messageContainer = document.getElementById('message-container');
+            const className = type === 'error' ? 'error-message' : 'success-message';
+            messageContainer.innerHTML = `<div class="${className}">${message}</div>`;
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        // Toggle irrelevant note field
+        function toggleIrrelevantNote() {
+            const checkbox = document.getElementById('irrelevant');
+            const noteGroup = document.getElementById('irrelevant-note-group');
+            
+            if (checkbox.checked) {
+                noteGroup.style.display = 'block';
+            } else {
+                noteGroup.style.display = 'none';
+                document.getElementById('irrelevantNote').value = '';
+            }
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            
+            // Find the correct tab button
+            const tabButtons = document.querySelectorAll('.tab');
+            tabButtons.forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(tab)) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            
+            if (tab === 'list') {
+                loadApartments();
+            } else if (tab === 'compare') {
+                loadComparisonCheckboxes();
+            } else if (tab === 'map') {
+                initializeMap();
+            } else if (tab === 'add' && !editingId) {
+                // Reset form only if not editing
+                document.getElementById('apartment-form').reset();
+                currentImages = [];
+                document.getElementById('image-preview').innerHTML = '';
+                document.getElementById('irrelevant-note-group').style.display = 'none';
+                document.querySelectorAll('.rating-group').forEach(group => {
+                    group.removeAttribute('data-value');
+                    group.querySelectorAll('.star').forEach(star => {
+                        star.classList.remove('active');
+                        star.style.color = '#ddd';
+                    });
+                });
+                document.querySelector('#apartment-form button[type="submit"]').textContent = 'Save Apartment';
+            }
+        }
+
+        // Rating system
+        function setupRatingListeners() {
+            document.querySelectorAll('.rating-group').forEach(group => {
+                const stars = group.querySelectorAll('.star');
+                stars.forEach((star, index) => {
+                    star.addEventListener('click', () => {
+                        const rating = index + 1;
+                        group.setAttribute('data-value', rating);
+                        stars.forEach((s, i) => {
+                            if (i < rating) {
+                                s.classList.add('active');
+                            } else {
+                                s.classList.remove('active');
+                            }
+                        });
+                    });
+                    
+                    // Add hover effect
+                    star.addEventListener('mouseenter', () => {
+                        stars.forEach((s, i) => {
+                            if (i <= index) {
+                                s.style.color = '#ffd700';
+                            } else {
+                                s.style.color = '#ddd';
+                            }
+                        });
+                    });
+                });
+                
+                // Reset hover effect when mouse leaves the rating group
+                group.addEventListener('mouseleave', () => {
+                    stars.forEach((s, i) => {
+                        const currentRating = parseInt(group.getAttribute('data-value')) || 0;
+                        if (i < currentRating) {
+                            s.style.color = '#ffd700';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+            });
+        }
+
+        // Image handling
+        function handleImageUpload(event) {
+            const files = Array.from(event.target.files).slice(0, 5);
+            currentImages = [];
+            const preview = document.getElementById('image-preview');
+            preview.innerHTML = '';
+            
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImages.push(e.target.result);
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    preview.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Form submission
+        function setupFormListener() {
+            document.getElementById('apartment-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                if (!currentUser) {
+                    showMessage('error', 'You must be signed in to save apartments');
+                    return;
+                }
+                
+                const submitBtn = document.getElementById('submit-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = editingId ? 'Updating...' : 'Saving...';
+                
+                const formData = {
+                    address: document.getElementById('address').value,
+                    city: document.getElementById('city').value,
+                    floor: document.getElementById('floor').value,
+                    size: document.getElementById('size').value,
+                    divided: document.getElementById('divided').checked,
+                    parkingPermit: document.getElementById('parkingPermit').checked,
+                    shelter: document.getElementById('shelter').checked,
+                    elevator: document.getElementById('elevator').checked,
+                    parking: document.getElementById('parking').checked,
+                    price: parseInt(document.getElementById('price').value),
+                    arnona: parseInt(document.getElementById('arnona').value) || 0,
+                    vaad: parseInt(document.getElementById('vaad').value) || 0,
+                    broker: document.getElementById('broker').checked,
+                    visited: document.getElementById('visited').checked,
+                    favorite: document.getElementById('favorite').checked,
+                    irrelevant: document.getElementById('irrelevant').checked,
+                    irrelevantNote: document.getElementById('irrelevant').checked ? document.getElementById('irrelevantNote').value : '',
+                    contactName: document.getElementById('contactName').value,
+                    contactPhone: document.getElementById('contactPhone').value,
+                    moveInDate: document.getElementById('moveInDate').value,
+                    listingUrl: document.getElementById('listingUrl').value,
+                    notes: document.getElementById('notes').value,
+                    images: currentImages.length > 0 ? currentImages : (editingId && apartments[editingId] ? apartments[editingId].images : []),
+                    ratings: {
+                        condition: parseInt(document.querySelector('[data-rating="condition"]').getAttribute('data-value')) || 0,
+                        leisureLocation: parseInt(document.querySelector('[data-rating="leisureLocation"]').getAttribute('data-value')) || 0,
+                        workLocation: parseInt(document.querySelector('[data-rating="workLocation"]').getAttribute('data-value')) || 0,
+                        areaParking: parseInt(document.querySelector('[data-rating="areaParking"]').getAttribute('data-value')) || 0,
+                        noise: parseInt(document.querySelector('[data-rating="noise"]').getAttribute('data-value')) || 0,
+                        neighbors: parseInt(document.querySelector('[data-rating="neighbors"]').getAttribute('data-value')) || 0,
+                        privacy: parseInt(document.querySelector('[data-rating="privacy"]').getAttribute('data-value')) || 0
+                    },
+                    createdAt: editingId && apartments[editingId] ? apartments[editingId].createdAt : Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                try {
+                    await saveApartmentToFirebase(formData, editingId);
+                    showMessage('success', editingId ? 'Apartment updated successfully!' : 'Apartment saved successfully!');
+                    
+                    // Reset form
+                    this.reset();
+                    currentImages = [];
+                    editingId = null;
+                    document.getElementById('image-preview').innerHTML = '';
+                    document.getElementById('irrelevant-note-group').style.display = 'none';
+                    
+                    // Reset all ratings
+                    document.querySelectorAll('.rating-group').forEach(group => {
+                        group.removeAttribute('data-value');
+                        group.querySelectorAll('.star').forEach(star => {
+                            star.classList.remove('active');
+                            star.style.color = '#ddd';
+                        });
+                    });
+                    
+                    submitBtn.textContent = 'Save Apartment';
+                } catch (error) {
+                    showMessage('error', 'Failed to save apartment: ' + error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+
+        // Toggle favorite status
+        async function toggleFavorite(id) {
+            const apt = apartments[id];
+            if (!apt) return;
+            
+            apt.favorite = !apt.favorite;
+            apt.updatedAt = Date.now();
+            
+            try {
+                await saveApartmentToFirebase(apt, id);
+                showMessage('success', apt.favorite ? 'Added to favorites!' : 'Removed from favorites');
+            } catch (error) {
+                showMessage('error', 'Failed to update favorite status: ' + error.message);
+            }
+        }
+
+        // Toggle irrelevant status
+        async function toggleIrrelevant(id) {
+            const apt = apartments[id];
+            if (!apt) return;
+            
+            if (!apt.irrelevant) {
+                // Show modal to add note
+                const modal = document.createElement('div');
+                modal.className = 'irrelevant-note-modal';
+                
+                const content = document.createElement('div');
+                content.className = 'irrelevant-note-content';
+                content.innerHTML = `
+                    <h3>Mark as Irrelevant</h3>
+                    <p>Why is this apartment not suitable?</p>
+                    <textarea id="modal-irrelevant-note" rows="4" style="width: 100%; margin: 15px 0;"></textarea>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="this.closest('.irrelevant-note-modal').remove()">Cancel</button>
+                        <button class="btn btn-danger" onclick="confirmIrrelevant('${id}')">Mark as Irrelevant</button>
+                    </div>
+                `;
+                
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+            } else {
+                // Remove irrelevant status
+                apt.irrelevant = false;
+                apt.irrelevantNote = '';
+                apt.updatedAt = Date.now();
+                
+                try {
+                    await saveApartmentToFirebase(apt, id);
+                    showMessage('success', 'Removed irrelevant status');
+                } catch (error) {
+                    showMessage('error', 'Failed to update status: ' + error.message);
+                }
+            }
+        }
+
+        // Confirm irrelevant with note
+        async function confirmIrrelevant(id) {
+            const apt = apartments[id];
+            if (!apt) return;
+            
+            const note = document.getElementById('modal-irrelevant-note').value;
+            
+            apt.irrelevant = true;
+            apt.irrelevantNote = note;
+            apt.updatedAt = Date.now();
+            
+            try {
+                await saveApartmentToFirebase(apt, id);
+                document.querySelector('.irrelevant-note-modal').remove();
+                showMessage('success', 'Marked as irrelevant');
+            } catch (error) {
+                showMessage('error', 'Failed to update status: ' + error.message);
+            }
+        }
+
+        // Load apartments
+        function loadApartments() {
+            const list = document.getElementById('apartments-list');
+            list.innerHTML = '';
+            
+            const apartmentArray = Object.entries(apartments).map(([id, data]) => ({
+                id,
+                ...data
+            }));
+            
+            if (apartmentArray.length === 0) {
+                list.innerHTML = '<div class="loading">No apartments yet. Add your first apartment!</div>';
+                return;
+            }
+            
+            apartmentArray.forEach(apt => {
+                const totalCost = apt.price + apt.arnona + apt.vaad;
+                const avgRating = Object.values(apt.ratings).reduce((a, b) => a + b, 0) / Object.keys(apt.ratings).length;
+                
+                const card = document.createElement('div');
+                card.className = `apartment-card ${apt.irrelevant ? 'irrelevant' : ''}`;
+                card.innerHTML = `
+                    <div class="apartment-header">
+                        <div>
+                            <div class="apartment-title">${apt.address}</div>
+                            <div style="color: #666; font-size: 14px;">${apt.city} ${apt.visited ? '✓ Visited' : '⏳ Not visited'}</div>
+                        </div>
+                        <div class="apartment-price">₪${apt.price}</div>
+                    </div>
+                    ${(apt.favorite || apt.irrelevant) ? `
+                        <div class="apartment-badges">
+                            ${apt.favorite ? '<span class="badge badge-favorite">★ Favorite</span>' : ''}
+                            ${apt.irrelevant ? '<span class="badge badge-irrelevant">✗ Irrelevant</span>' : ''}
+                        </div>
+                    ` : ''}
+                    <div class="apartment-details">
+                        <div class="detail-item">Floor: ${apt.floor || 'N/A'}</div>
+                        <div class="detail-item">Size: ${apt.size || 'N/A'} m²</div>
+                        <div class="detail-item">${apt.elevator ? '✓ Elevator' : '✗ No Elevator'}</div>
+                        <div class="detail-item">${apt.parking ? '✓ Parking' : '✗ No Parking'}</div>
+                        ${apt.moveInDate ? `<div class="detail-item">Move-in: ${new Date(apt.moveInDate).toLocaleDateString('en-GB')}</div>` : ''}
+                    </div>
+                    <div class="total-cost">Total Monthly: ₪${totalCost}</div>
+                    <div class="rating-summary">
+                        <div class="rating-item">
+                            <span>Average Rating</span>
+                            <span>${'★'.repeat(Math.round(avgRating))} (${avgRating.toFixed(1)})</span>
+                        </div>
+                    </div>
+                    ${apt.irrelevantNote ? `<div class="irrelevant-note">Note: ${apt.irrelevantNote}</div>` : ''}
+                    <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="viewDetails('${apt.id}')">View Details</button>
+                        ${apt.listingUrl ? `<button class="btn btn-success" onclick="window.open('${apt.listingUrl}', '_blank')">View Listing</button>` : ''}
+                        <button class="btn btn-primary" onclick="editApartment('${apt.id}')">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteApartment('${apt.id}')">Delete</button>
+                        <button class="btn btn-favorite ${apt.favorite ? 'active' : ''}" onclick="toggleFavorite('${apt.id}')">${apt.favorite ? '★ Favorited' : '☆ Favorite'}</button>
+                        <button class="btn btn-irrelevant ${apt.irrelevant ? 'active' : ''}" onclick="toggleIrrelevant('${apt.id}')">${apt.irrelevant ? '✗ Irrelevant' : 'Mark Irrelevant'}</button>
+                        <a href="${getGoogleMapsLink(apt.address, apt.city)}" target="_blank" class="google-maps-link">
+                            📍 Open in Google Maps
+                        </a>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        // View apartment details
+        function viewDetails(id) {
+            const apt = apartments[id];
+            if (!apt) return;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                overflow-y: auto;
+                padding: 20px;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 600px;
+                max-height: 90vh;
+                overflow-y: auto;
+                width: 90%;
+            `;
+            
+            const totalCost = apt.price + apt.arnona + apt.vaad;
+            
+            content.innerHTML = `
+                <h2>${apt.address}, ${apt.city}</h2>
+                ${(apt.favorite || apt.irrelevant) ? `
+                    <div class="apartment-badges" style="margin: 10px 0;">
+                        ${apt.favorite ? '<span class="badge badge-favorite">★ Favorite</span>' : ''}
+                        ${apt.irrelevant ? '<span class="badge badge-irrelevant">✗ Irrelevant</span>' : ''}
+                    </div>
+                ` : ''}
